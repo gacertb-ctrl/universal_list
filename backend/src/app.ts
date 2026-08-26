@@ -1,4 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
+import dotenv from 'dotenv';
+dotenv.config();
+
 console.log('=== APP TS LOADED ===');
 import cors from 'cors';
 import helmet from 'helmet';
@@ -17,24 +20,41 @@ import adSettingsRoutes from './routes/adSettings.routes';
 const app: Express = express();
 
 // Global Middlewares
-app.use(helmet()); // Security headers
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  process.env.FRONTEND_URL
-].filter(Boolean) as string[];
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Security headers
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, postman)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    
+    // In development mode or local environment, allow localhost origins
+    if (
+      process.env.NODE_ENV !== 'production' || 
+      origin.startsWith('http://localhost') || 
+      origin.startsWith('http://127.0.0.1')
+    ) {
+      return callback(null, true);
     }
+    
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      process.env.FRONTEND_URL
+    ].filter(Boolean) as string[];
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 })); // CORS setup
+
 app.use(morgan('dev')); // HTTP request logger
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies

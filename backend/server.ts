@@ -1,9 +1,10 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 console.log('=== SERVER TS LOADED ===');
 import app from './src/app';
-import dotenv from 'dotenv';
 import prisma from './src/config/db';
 
-dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
