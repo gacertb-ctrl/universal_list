@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const dotenv_1 = __importDefault(require("dotenv"));
+dotenv_1.default.config();
 console.log('=== APP TS LOADED ===');
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
@@ -19,24 +21,33 @@ const adSettings_routes_1 = __importDefault(require("./routes/adSettings.routes"
 // Create Express app
 const app = (0, express_1.default)();
 // Global Middlewares
-app.use((0, helmet_1.default)()); // Security headers
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    process.env.FRONTEND_URL
-].filter(Boolean);
+app.use((0, helmet_1.default)({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Security headers
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, postman)
         if (!origin)
             return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-            callback(null, true);
+        // In development mode or local environment, allow localhost origins
+        if (process.env.NODE_ENV !== 'production' ||
+            origin.startsWith('http://localhost') ||
+            origin.startsWith('http://127.0.0.1')) {
+            return callback(null, true);
         }
-        else {
-            callback(new Error('Not allowed by CORS'));
+        const allowedOrigins = [
+            'http://localhost:5173',
+            'http://127.0.0.1:5173',
+            process.env.FRONTEND_URL
+        ].filter(Boolean);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
         }
+        return callback(null, true);
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 })); // CORS setup
 app.use((0, morgan_1.default)('dev')); // HTTP request logger
 app.use(express_1.default.json()); // Parse JSON bodies
