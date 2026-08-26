@@ -17,12 +17,12 @@ const searchModels = async (req, res, next) => {
         const models = await db_1.default.model.findMany({
             where: {
                 OR: [
-                    { name: { contains: query } },
-                    { brand: { name: { contains: query } } },
-                    { category: { name: { contains: query } } },
-                    { aliases: { some: { aliasName: { contains: query } } } },
-                    { tags: { some: { tagName: { contains: query } } } },
-                    { compatibilityLists: { some: { compatibleWith: { contains: query } } } }
+                    { name: { contains: query, mode: 'insensitive' } },
+                    { brand: { name: { contains: query, mode: 'insensitive' } } },
+                    { category: { name: { contains: query, mode: 'insensitive' } } },
+                    { aliases: { some: { aliasName: { contains: query, mode: 'insensitive' } } } },
+                    { tags: { some: { tagName: { contains: query, mode: 'insensitive' } } } },
+                    { compatibilityLists: { some: { compatibleWith: { contains: query, mode: 'insensitive' } } } }
                 ]
             },
             include: {
@@ -80,10 +80,10 @@ const getSuggestions = async (req, res, next) => {
         const suggestions = await db_1.default.model.findMany({
             where: {
                 OR: [
-                    { name: { contains: query } },
-                    { brand: { name: { contains: query } } },
-                    { category: { name: { contains: query } } },
-                    { aliases: { some: { aliasName: { contains: query } } } }
+                    { name: { contains: query, mode: 'insensitive' } },
+                    { brand: { name: { contains: query, mode: 'insensitive' } } },
+                    { category: { name: { contains: query, mode: 'insensitive' } } },
+                    { aliases: { some: { aliasName: { contains: query, mode: 'insensitive' } } } }
                 ]
             },
             select: {

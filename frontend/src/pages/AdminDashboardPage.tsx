@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { GlassCard } from '../components/ui/GlassCard';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getAdSettings, updateAdSettings } from '../services/api';
+import { getAdSettings, updateAdSettings, bulkImportModels } from '../services/api';
 
 export function AdminDashboardPage() {
   const queryClient = useQueryClient();
@@ -58,12 +58,27 @@ export function AdminDashboardPage() {
     }
   });
 
-  const handleFileUpload = () => {
-    setIsUploading(true);
-    setTimeout(() => {
+  // Bulk import mutation
+  const bulkImportMutation = useMutation({
+    mutationFn: bulkImportModels,
+    onSuccess: (data: any) => {
       setIsUploading(false);
-      alert('Bulk import completed successfully!');
-    }, 2000);
+      queryClient.invalidateQueries({ queryKey: ['models'] });
+      alert(data.message || 'Bulk import completed successfully!');
+    },
+    onError: (err: any) => {
+      setIsUploading(false);
+      alert(err.response?.data?.message || 'Failed to import CSV file');
+    }
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    bulkImportMutation.mutate(file);
+    // Reset file input value so same file can be selected again if needed
+    e.target.value = '';
   };
 
   const handleInputChange = (field: 'adClient' | 'adSlot', value: string) => {

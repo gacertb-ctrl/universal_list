@@ -195,46 +195,90 @@ const bulkImportModels = async (req, res, next) => {
         }
         const results = [];
         fs_1.default.createReadStream(req.file.path)
-            .pipe((0, csv_parser_1.default)())
+            .pipe((0, csv_parser_1.default)({
+            mapHeaders: ({ header }) => header.trim()
+        }))
             .on('data', (data) => results.push(data))
             .on('end', async () => {
-            // Format assumed: Model Name, Brand ID, Category ID, Compatible With (comma separated)
             let importedCount = 0;
-            for (const row of results) {
-                const brandId = String(row['Brand ID'] || row.brandId || '').trim();
-                const categoryId = String(row['Category ID'] || row.categoryId || '').trim();
-                const name = row['Model Name'] || row.name;
-                if (!name || !brandId || !categoryId)
-                    continue;
-                const newModel = await db_1.default.model.create({
-                    data: {
-                        name,
-                        brandId,
-                        categoryId,
-                        isVerified: true
-                    }
-                });
-                importedCount++;
-                const compatibleStr = row['Compatible With'] || row.compatibleWith;
-                if (compatibleStr) {
-                    const compats = compatibleStr.split(',').map((c) => c.trim()).filter(Boolean);
-                    if (compats.length > 0) {
-                        await db_1.default.compatibilityList.createMany({
-                            data: compats.map((c) => ({
-                                modelId: newModel.id,
-                                compatibleWith: c,
-                                isVerified: true
-                            }))
+            try {
+                for (const row of results) {
+                    // Flexible column resolution
+                    const name = row['Model Name'] || row['name'] || row['Model'] || row['model'];
+                    const brandVal = row['Brand'] || row['brand'] || row['Brand Name'] || row['Brand ID'] || row['brandId'];
+                    const categoryVal = row['Category'] || row['category'] || row['Category Name'] || row['Category ID'] || row['categoryId'];
+                    if (!name || !brandVal || !categoryVal)
+                        continue;
+                    const brandStr = String(brandVal).trim();
+                    const categoryStr = String(categoryVal).trim();
+                    const isValidObjectId = (val) => /^[0-9a-fA-F]{24}$/.test(val);
+                    // Resolve or find/create Brand by ID (if valid ObjectId) or Name
+                    let brand = await db_1.default.brand.findFirst({
+                        where: isValidObjectId(brandStr)
+                            ? { OR: [{ id: brandStr }, { name: { equals: brandStr, mode: 'insensitive' } }] }
+                            : { name: { equals: brandStr, mode: 'insensitive' } }
+                    });
+                    if (!brand) {
+                        brand = await db_1.default.brand.create({
+                            data: { name: brandStr }
                         });
                     }
+                    // Resolve or find/create Category by ID (if valid ObjectId) or Name
+                    let category = await db_1.default.category.findFirst({
+                        where: isValidObjectId(categoryStr)
+                            ? { OR: [{ id: categoryStr }, { name: { equals: categoryStr, mode: 'insensitive' } }] }
+                            : { name: { equals: categoryStr, mode: 'insensitive' } }
+                    });
+                    if (!category) {
+                        category = await db_1.default.category.create({
+                            data: { name: categoryStr }
+                        });
+                    }
+                    // Create Model
+                    const newModel = await db_1.default.model.create({
+                        data: {
+                            name: String(name).trim(),
+                            brandId: brand.id,
+                            categoryId: category.id,
+                            isVerified: true
+                        }
+                    });
+                    importedCount++;
+                    const compatibleStr = row['Compatible Models'] || row['Compatible With'] || row['compatibleWith'] || row['compatibility'];
+                    if (compatibleStr) {
+                        const compats = String(compatibleStr).split(',').map((c) => c.trim()).filter(Boolean);
+                        if (compats.length > 0) {
+                            await db_1.default.compatibilityList.createMany({
+                                data: compats.map((c) => ({
+                                    modelId: newModel.id,
+                                    compatibleWith: c,
+                                    isVerified: true
+                                }))
+                            });
+                        }
+                    }
                 }
+                // Remove temp file
+                if (fs_1.default.existsSync(req.file.path)) {
+                    fs_1.default.unlinkSync(req.file.path);
+                }
+                res.status(200).json({
+                    success: true,
+                    message: `Successfully imported ${importedCount} model(s).`
+                });
             }
-            // Remove temp file
-            fs_1.default.unlinkSync(req.file.path);
-            res.status(200).json({
-                success: true,
-                message: `Successfully imported ${importedCount} models.`
-            });
+            catch (err) {
+                if (fs_1.default.existsSync(req.file.path)) {
+                    fs_1.default.unlinkSync(req.file.path);
+                }
+                next(err);
+            }
+        })
+            .on('error', (err) => {
+            if (fs_1.default.existsSync(req.file.path)) {
+                fs_1.default.unlinkSync(req.file.path);
+            }
+            next(err);
         });
     }
     catch (error) {

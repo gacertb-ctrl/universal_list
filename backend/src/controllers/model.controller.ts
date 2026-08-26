@@ -198,52 +198,100 @@ export const bulkImportModels = async (req: Request, res: Response, next: NextFu
 
     const results: any[] = [];
     fs.createReadStream(req.file.path)
-      .pipe(csvParser())
+      .pipe(csvParser({
+        mapHeaders: ({ header }) => header.trim()
+      }))
       .on('data', (data) => results.push(data))
       .on('end', async () => {
-        // Format assumed: Model Name, Brand ID, Category ID, Compatible With (comma separated)
         let importedCount = 0;
-        
-        for (const row of results) {
-           const brandId = String(row['Brand ID'] || row.brandId || '').trim();
-           const categoryId = String(row['Category ID'] || row.categoryId || '').trim();
-           const name = row['Model Name'] || row.name;
 
-           if (!name || !brandId || !categoryId) continue;
+        try {
+          for (const row of results) {
+            // Flexible column resolution
+            const name = row['Model Name'] || row['name'] || row['Model'] || row['model'];
+            const brandVal = row['Brand'] || row['brand'] || row['Brand Name'] || row['Brand ID'] || row['brandId'];
+            const categoryVal = row['Category'] || row['category'] || row['Category Name'] || row['Category ID'] || row['categoryId'];
 
-           const newModel = await prisma.model.create({
-             data: {
-               name,
-               brandId,
-               categoryId,
-               isVerified: true
-             }
-           });
-           
-           importedCount++;
-           
-           const compatibleStr = row['Compatible With'] || row.compatibleWith;
-           if (compatibleStr) {
-             const compats = compatibleStr.split(',').map((c: string) => c.trim()).filter(Boolean);
-             if (compats.length > 0) {
-               await prisma.compatibilityList.createMany({
-                 data: compats.map((c: string) => ({
-                   modelId: newModel.id,
-                   compatibleWith: c,
-                   isVerified: true
-                 }))
-               });
-             }
-           }
+            if (!name || !brandVal || !categoryVal) continue;
+
+            const brandStr = String(brandVal).trim();
+            const categoryStr = String(categoryVal).trim();
+            const isValidObjectId = (val: string) => /^[0-9a-fA-F]{24}$/.test(val);
+
+            // Resolve or find/create Brand by ID (if valid ObjectId) or Name
+            let brand = await prisma.brand.findFirst({
+              where: isValidObjectId(brandStr)
+                ? { OR: [{ id: brandStr }, { name: { equals: brandStr, mode: 'insensitive' } }] }
+                : { name: { equals: brandStr, mode: 'insensitive' } }
+            });
+
+            if (!brand) {
+              brand = await prisma.brand.create({
+                data: { name: brandStr }
+              });
+            }
+
+            // Resolve or find/create Category by ID (if valid ObjectId) or Name
+            let category = await prisma.category.findFirst({
+              where: isValidObjectId(categoryStr)
+                ? { OR: [{ id: categoryStr }, { name: { equals: categoryStr, mode: 'insensitive' } }] }
+                : { name: { equals: categoryStr, mode: 'insensitive' } }
+            });
+
+            if (!category) {
+              category = await prisma.category.create({
+                data: { name: categoryStr }
+              });
+            }
+
+            // Create Model
+            const newModel = await prisma.model.create({
+              data: {
+                name: String(name).trim(),
+                brandId: brand.id,
+                categoryId: category.id,
+                isVerified: true
+              }
+            });
+
+            importedCount++;
+
+            const compatibleStr = row['Compatible Models'] || row['Compatible With'] || row['compatibleWith'] || row['compatibility'];
+            if (compatibleStr) {
+              const compats = String(compatibleStr).split(',').map((c: string) => c.trim()).filter(Boolean);
+              if (compats.length > 0) {
+                await prisma.compatibilityList.createMany({
+                  data: compats.map((c: string) => ({
+                    modelId: newModel.id,
+                    compatibleWith: c,
+                    isVerified: true
+                  }))
+                });
+              }
+            }
+          }
+
+          // Remove temp file
+          if (fs.existsSync(req.file!.path)) {
+            fs.unlinkSync(req.file!.path);
+          }
+
+          res.status(200).json({ 
+            success: true, 
+            message: `Successfully imported ${importedCount} model(s).` 
+          });
+        } catch (err) {
+          if (fs.existsSync(req.file!.path)) {
+            fs.unlinkSync(req.file!.path);
+          }
+          next(err);
         }
-        
-        // Remove temp file
-        fs.unlinkSync(req.file!.path);
-
-        res.status(200).json({ 
-          success: true, 
-          message: `Successfully imported ${importedCount} models.` 
-        });
+      })
+      .on('error', (err) => {
+        if (fs.existsSync(req.file!.path)) {
+          fs.unlinkSync(req.file!.path);
+        }
+        next(err);
       });
 
   } catch (error) {
