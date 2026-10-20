@@ -2,9 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/db';
 
-interface JwtPayload {
-  id: string;
-  roleId: string;
+export interface JwtPayload {
+  id: number | string;
+  roleId: number | string;
 }
 
 declare global {
@@ -17,7 +17,8 @@ declare global {
 
 export const authenticate = (req: Request, res: Response, next: NextFunction): void => {
   try {
-    const token = req.headers.authorization?.split(' ')[1] || req.cookies?.token;
+    const authHeader = req.headers.authorization;
+    const token = (authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null) || (req.cookies && req.cookies.token);
 
     if (!token) {
       res.status(401).json({ success: false, message: 'Authentication required' });
@@ -28,7 +29,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction): v
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    res.status(401).json({ success: false, message: 'Invalid or expired authentication token' });
     return;
   }
 };
@@ -41,10 +42,11 @@ export const authorize = (roles: string[]) => {
         return;
       }
       
-      const userRole = await prisma.role.findUnique({ where: { id: req.user.roleId } });
+      const roleIdInt = typeof req.user.roleId === 'number' ? req.user.roleId : parseInt(String(req.user.roleId), 10);
+      const userRole = await prisma.role.findUnique({ where: { id: roleIdInt } });
 
       if (!userRole || !roles.includes(userRole.name)) {
-        res.status(403).json({ success: false, message: 'Forbidden: Insufficient permissions' });
+        res.status(403).json({ success: false, message: 'Forbidden: Insufficient permissions for this action' });
         return;
       }
 

@@ -3,18 +3,21 @@ generator client {
 }
 
 datasource db {
-  provider = "mongodb"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
+// ========================
+// CORE AUTH & ROLES
+// ========================
 model User {
-  id             String          @id @default(auto()) @map("_id") @db.ObjectId
+  id             Int             @id @default(autoincrement())
   name           String
   email          String          @unique
   password       String
-  roleId         String          @db.ObjectId
+  roleId         Int
   role           Role            @relation(fields: [roleId], references: [id])
-  status         String          @default("active")
+  status         String          @default("active") // active, suspended
   lastLogin      DateTime?
   favorites      Favorite[]
   searchHistory  SearchHistory[]
@@ -28,32 +31,69 @@ model User {
 }
 
 model Role {
-  id            String       @id @default(auto()) @map("_id") @db.ObjectId
-  name          String       @unique // Super Admin, Admin, Editor, Technician, Premium User, Guest
-  users         User[]
-  permissionIds String[]     @db.ObjectId
-  permissions   Permission[] @relation(fields: [permissionIds], references: [id])
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id          Int          @id @default(autoincrement())
+  name        String       @unique // Super Admin, Admin, Technician, User
+  users       User[]
+  permissions Permission[] @relation("RolePermissions")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@map("roles")
 }
 
 model Permission {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        Int      @id @default(autoincrement())
   name      String   @unique
-  roleIds   String[] @db.ObjectId
-  roles     Role[]   @relation(fields: [roleIds], references: [id])
+  roles     Role[]   @relation("RolePermissions")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("permissions")
 }
 
+// ========================
+// CATALOG HIERARCHY
+// ========================
+model Category {
+  id             Int            @id @default(autoincrement())
+  name           String         @unique
+  slug           String?        @unique
+  description    String?        @db.Text
+  icon           String?
+  navigationType String         @default("brand_first") // "type_first" (e.g. Tempered Glass) or "brand_first" (Battery, Combo, etc.)
+  sortOrder      Int            @default(0)
+  isActive       Boolean        @default(true)
+  types          CategoryType[]
+  models         Model[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("categories")
+}
+
+model CategoryType {
+  id          Int      @id @default(autoincrement())
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String   // e.g. "Normal Tempered", "Edge Tempered"
+  slug        String
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  models      Model[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([categoryId, slug])
+  @@map("category_types")
+}
+
 model Brand {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        Int      @id @default(autoincrement())
   name      String   @unique
+  slug      String?  @unique
   logoUrl   String?
+  isActive  Boolean  @default(true)
   models    Model[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -61,44 +101,40 @@ model Brand {
   @@map("brands")
 }
 
-model Category {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String   @unique // Display connector, Combo, Touch/OCA, Battery, Frame, etc.
-  models    Model[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("categories")
-}
-
 model Model {
-  id                 String              @id @default(auto()) @map("_id") @db.ObjectId
-  name               String
-  brandId            String              @db.ObjectId
-  brand              Brand               @relation(fields: [brandId], references: [id])
-  categoryId         String              @db.ObjectId
-  category           Category            @relation(fields: [categoryId], references: [id])
-  imageUrl           String?
-  notes              String?
-  isVerified         Boolean             @default(false)
-  aliases            ModelAlias[]
-  tags               ModelTag[]
-  compatibilityLists CompatibilityList[]
-  favorites          Favorite[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                    Int                   @id @default(autoincrement())
+  name                  String
+  brandId               Int
+  brand                 Brand                 @relation(fields: [brandId], references: [id])
+  categoryId            Int
+  category              Category              @relation(fields: [categoryId], references: [id])
+  typeId                Int?
+  categoryType          CategoryType?         @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  imageUrl              String?
+  notes                 String?               @db.Text
+  isVerified            Boolean               @default(false)
+  isActive              Boolean               @default(true)
+  lastVerifiedAt        DateTime?
+  aliases               ModelAlias[]
+  tags                  ModelTag[]
+  compatibilityLists    CompatibilityList[]
+  sourceCompatibilities CompatibilityRecord[] @relation("SourceModel")
+  targetCompatibilities CompatibilityRecord[] @relation("TargetModel")
+  favorites             Favorite[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
-  // Indexes for faster searching
   @@index([name])
   @@index([brandId])
   @@index([categoryId])
+  @@index([typeId])
   @@map("models")
 }
 
 model ModelAlias {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        Int      @id @default(autoincrement())
   aliasName String
-  modelId   String   @db.ObjectId
+  modelId   Int
   model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
@@ -107,9 +143,9 @@ model ModelAlias {
 }
 
 model ModelTag {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        Int      @id @default(autoincrement())
   tagName   String
-  modelId   String   @db.ObjectId
+  modelId   Int
   model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
@@ -117,47 +153,105 @@ model ModelTag {
   @@map("model_tags")
 }
 
+// Retained for existing records and legacy compatibility list matching
 model CompatibilityList {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  modelId         String   @db.ObjectId
-  model           Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  compatibleWith  String // E.g., "iPhone 12 Pro Max"
-  connectorType   String?
-  type            String? // Display, Battery, etc.
-  isVerified      Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  modelId        Int
+  model          Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  compatibleWith String
+  connectorType  String?
+  type           String?
+  isVerified     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([compatibleWith])
   @@map("compatibility_lists")
 }
 
-model Favorite {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  modelId   String   @db.ObjectId
-  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+// Normalized Many-to-Many Compatibility Record
+model CompatibilityRecord {
+  id            Int       @id @default(autoincrement())
+  sourceModelId Int
+  sourceModel   Model     @relation("SourceModel", fields: [sourceModelId], references: [id], onDelete: Cascade)
+  targetModelId Int
+  targetModel   Model     @relation("TargetModel", fields: [targetModelId], references: [id], onDelete: Cascade)
+  notes         String?   @db.Text
+  connectorInfo String?
+  isVerified    Boolean   @default(false)
+  verifiedAt    DateTime?
+  source        String?   @default("manual") // "manual", "ai_gemini", "csv_import"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  @@unique([userId, modelId])
-  @@map("favorites")
+  @@unique([sourceModelId, targetModelId])
+  @@map("compatibility_records")
 }
 
-model Notification {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  title     String
-  message   String
-  type      String   // push, in-app, email
-  isRead    Boolean  @default(false)
-  userId    String?  @db.ObjectId
-  createdAt DateTime @default(now())
+// ========================
+// GEMINI AI UPDATE ENGINE
+// ========================
+model AiUpdateJob {
+  id                      Int                 @id @default(autoincrement())
+  jobId                   String              @unique
+  status                  String              // "pending", "running", "completed", "failed"
+  isDryRun                Boolean             @default(false)
+  startedAt               DateTime            @default(now())
+  finishedAt              DateTime?
+  candidatesFound         Int                 @default(0)
+  newModels               Int                 @default(0)
+  updatedModels           Int                 @default(0)
+  compatibilityCandidates Int                 @default(0)
+  summaryJson             String?             @db.Text
+  errorMessage            String?             @db.Text
+  triggeredBy             String              @default("scheduled") // "scheduled" or "admin:email"
+  candidates              AiUpdateCandidate[]
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
 
-  @@map("notifications")
+  @@map("ai_update_jobs")
 }
 
+model AiUpdateCandidate {
+  id                  Int         @id @default(autoincrement())
+  jobId               Int
+  job                 AiUpdateJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId         String
+  operation           String      // "create_model", "update_model", "add_alias", "propose_compatibility", "no_change", "needs_review"
+  brandName           String
+  modelName           String
+  aliasesJson         String?     @db.Text
+  categorySlug        String
+  typeSlug            String?
+  modelAttributesJson String?     @db.Text
+  compatibilityJson   String?     @db.Text
+  sourcesJson         String?     @db.Text
+  confidence          Float       @default(0.0)
+  verificationStatus  String      @default("unverified") // "unverified", "pending_review", "approved", "rejected"
+  warningsJson        String?     @db.Text
+  matchedModelId      Int?
+  reviewedBy          Int?
+  reviewedAt          DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@map("ai_update_candidates")
+}
+
+model AiSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_settings")
+}
+
+// ========================
+// SEARCH & LOGS
+// ========================
 model SearchKeyword {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        Int      @id @default(autoincrement())
   keyword   String   @unique
   count     Int      @default(1)
   createdAt DateTime @default(now())
@@ -168,8 +262,8 @@ model SearchKeyword {
 }
 
 model SearchHistory {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
+  id        Int      @id @default(autoincrement())
+  userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   query     String
   createdAt DateTime @default(now())
@@ -177,13 +271,50 @@ model SearchHistory {
   @@map("search_history")
 }
 
+model Favorite {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modelId   Int
+  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, modelId])
+  @@map("favorites")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  resource  String
+  details   String?  @db.Text
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  userId    Int?
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
 model SupportTicket {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId
+  id          Int      @id @default(autoincrement())
+  userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject     String
-  description String
-  status      String   @default("open") // open, in_progress, resolved
+  description String   @db.Text
+  status      String   @default("open")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -191,27 +322,15 @@ model SupportTicket {
 }
 
 model Subscription {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
+  id        Int      @id @default(autoincrement())
+  userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan      String   // premium, basic
-  status    String   // active, expired, cancelled
+  plan      String
+  status    String
   startDate DateTime
   endDate   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("subscriptions")
-}
-
-model AuditLog {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String   @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String
-  resource  String
-  details   String?
-  createdAt DateTime @default(now())
-
-  @@map("audit_logs")
 }

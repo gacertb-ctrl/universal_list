@@ -1,6 +1,6 @@
 {
   "watch": ["src", "server.ts"],
-  "ext": "ts,json",
-  "ignore": ["node_modules", "dist"],
+  "ext": "ts",
+  "ignore": ["node_modules", "dist", "uploads", "src/config/ad-settings.json", "src/tests"],
   "exec": "ts-node server.ts"
 }

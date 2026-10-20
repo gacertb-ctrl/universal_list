@@ -7,6 +7,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 
 import authRoutes from './routes/auth.routes';
 import brandRoutes from './routes/brand.routes';
@@ -15,6 +16,7 @@ import modelRoutes from './routes/model.routes';
 import searchRoutes from './routes/search.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import adSettingsRoutes from './routes/adSettings.routes';
+import adminRoutes from './routes/admin.routes';
 
 // Create Express app
 const app: Express = express();
@@ -58,6 +60,7 @@ app.use(cors({
 app.use(morgan('dev')); // HTTP request logger
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use(cookieParser());
 
 // Rate limiting
 const isDev = process.env.NODE_ENV === 'development';
@@ -86,6 +89,7 @@ app.use('/api/models', modelRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/ad-settings', adSettingsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Print registered routes for debugging
 app._router.stack.forEach((r: any) => {
