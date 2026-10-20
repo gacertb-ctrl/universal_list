@@ -8,12 +8,15 @@ dotenv_1.default.config();
 console.log('=== SERVER TS LOADED ===');
 const app_1 = __importDefault(require("./src/app"));
 const db_1 = __importDefault(require("./src/config/db"));
+const aiScheduler_1 = require("./src/jobs/aiScheduler");
 const PORT = process.env.PORT || 5000;
 async function startServer() {
     try {
         // Attempt to connect to the database to verify it's working
         await db_1.default.$connect();
         console.log('Successfully connected to the database.');
+        // Initialize Gemini AI Daily Scheduler
+        await aiScheduler_1.aiScheduler.initialize();
         app_1.default.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
         });

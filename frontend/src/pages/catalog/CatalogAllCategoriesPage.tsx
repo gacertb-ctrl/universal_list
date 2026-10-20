@@ -55,9 +55,14 @@ export function CatalogAllCategoriesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {categories.map((cat: any, idx: number) => {
               const Icon = getCategoryIcon(cat.name, idx);
+              const isTypeFirst = cat.navigationType === 'type_first' || cat.slug === 'tempered-glass' || cat.name?.toLowerCase().includes('tempered');
+              const targetRoute = isTypeFirst 
+                ? `/category/${cat.id}/types` 
+                : `/category/${cat.id}/brands`;
+
               return (
                 <Link 
-                  to={`/category/${cat.id}/brands`}
+                  to={targetRoute}
                   key={cat.id} 
                   className="relative p-5 rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-300 dark:hover:border-blue-700 hover:-translate-y-1 transition-all duration-300 group hover:shadow-lg flex items-start space-x-4 text-gray-800 dark:text-gray-100"
                 >
@@ -67,7 +72,7 @@ export function CatalogAllCategoriesPage() {
                   <div>
                     <h3 className="font-bold leading-tight mb-1">{cat.name}</h3>
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                      {cat.models?.length || Math.floor(Math.random() * 200) + 50} Models
+                      {cat._count?.models ?? (cat.models?.length || 0)} Models
                     </p>
                   </div>
                   <div className="absolute top-2 right-2 text-gray-300 dark:text-gray-600">

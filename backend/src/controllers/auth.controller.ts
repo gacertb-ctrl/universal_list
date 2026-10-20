@@ -114,8 +114,9 @@ export const me = async (req: Request, res: Response, next: NextFunction): Promi
       return;
     }
 
+    const userId = typeof req.user.id === 'number' ? req.user.id : parseInt(String(req.user.id), 10);
     const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
+      where: { id: userId },
       select: { id: true, name: true, email: true, status: true, role: true, lastLogin: true, createdAt: true },
     });
 

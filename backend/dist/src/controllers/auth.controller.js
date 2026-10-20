@@ -103,8 +103,9 @@ const me = async (req, res, next) => {
             res.status(401).json({ success: false, message: 'Not authenticated' });
             return;
         }
+        const userId = typeof req.user.id === 'number' ? req.user.id : parseInt(String(req.user.id), 10);
         const user = await db_1.default.user.findUnique({
-            where: { id: req.user.id },
+            where: { id: userId },
             select: { id: true, name: true, email: true, status: true, role: true, lastLogin: true, createdAt: true },
         });
         if (!user) {

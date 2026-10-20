@@ -21,7 +21,7 @@ import { CatalogModelsPage } from './pages/catalog/CatalogModelsPage';
 import { CatalogAllCategoriesPage } from './pages/catalog/CatalogAllCategoriesPage';
 import { CatalogAllBrandsPage } from './pages/catalog/CatalogAllBrandsPage';
 import { CatalogAllModelsPage } from './pages/catalog/CatalogAllModelsPage';
-// import { CatalogPlaceholderPage } from './pages/catalog/CatalogPlaceholderPage';
+import { CatalogTypesPage } from './pages/catalog/CatalogTypesPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,15 +51,15 @@ function App() {
                 <Route path="categories" element={<CatalogAllCategoriesPage />} />
                 <Route path="brands" element={<CatalogAllBrandsPage />} />
                 <Route path="models" element={<CatalogAllModelsPage />} />
+                {/* Type Selection (e.g. Tempered Glass Normal / Edge) */}
+                <Route path="category/:categoryId/types" element={<CatalogTypesPage />} />
+                <Route path="category/:categoryId/type/:typeId/models" element={<CatalogModelsPage />} />
+                <Route path="category/:categoryId/type/:typeId/brands" element={<CatalogBrandsPage />} />
+                <Route path="category/:categoryId/type/:typeId/brand/:brandId/models" element={<CatalogModelsPage />} />
+                {/* Brand Selection (e.g. Cover, Combo, Battery, CC Board, Strip) */}
                 <Route path="category/:categoryId/brands" element={<CatalogBrandsPage />} />
                 <Route path="category/:categoryId/brand/:brandId/models" element={<CatalogModelsPage />} />
                 <Route path="brand/:brandId/models" element={<CatalogModelsPage />} />
-
-                {/* Secondary Sidebar Route Placeholders */}
-                {/* <Route path="updates" element={<CatalogPlaceholderPage title="Recent Updates Feed" description="Stay tuned! The live feed of compatibility additions and database updates is being prepared for public access." />} />
-                <Route path="compare" element={<CatalogPlaceholderPage title="Device Compatibility Compare" description="Our comparison engine is getting a visual upgrade. You will soon be able to compare connectors, frames, and parts side-by-side." />} />
-                <Route path="favorites" element={<CatalogPlaceholderPage title="My Saved Favorites" description="Save your frequently searched models. This feature is coming soon to public dashboards using local device storage." />} />
-                <Route path="support" element={<CatalogPlaceholderPage title="Technician Support Desk" description="Need assistance? Our community forum and direct WhatsApp support channel is available under the Join Community button on the sidebar." />} /> */}
               </Route>
               {/* Authenticated user routes */}
               <Route element={<ProtectedRoute />}>
@@ -72,6 +72,11 @@ function App() {
                   {/* Admin restricted routes */}
                   <Route element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin']} />}>
                     <Route path="admin" element={<AdminDashboardPage />} />
+                  </Route>
+                </Route>
+                <Route element={<ProtectedRoute allowedRoles={['Super Admin', 'Admin']} />}>
+                  <Route path="/admin" element={<DashboardLayout />}>
+                    <Route index element={<AdminDashboardPage />} />
                   </Route>
                 </Route>
               </Route>

@@ -330,7 +330,7 @@ export function ModelListPage() {
                         </span>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-xs font-semibold">
+                        <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md text-xs font-semibold whitespace-nowrap">
                           {model.category?.name || 'Uncategorized'}
                         </span>
                       </td>
@@ -495,7 +495,7 @@ export function ModelListPage() {
                   onChange={(e) => setIsVerified(e.target.checked)}
                   className="w-4 h-4 rounded border-[var(--color-border)] text-[var(--color-primary)] focus:ring-[var(--color-primary)] bg-transparent"
                 />
-                <label htmlFor="isVerified" className="text-sm font-semibold text-gray-300 cursor-pointer">
+                <label htmlFor="isVerified" className="text-sm font-semibold text-gray-700 dark:text-gray-300 cursor-pointer">
                   Mark as Verified (Approved compatibility list)
                 </label>
               </div>
